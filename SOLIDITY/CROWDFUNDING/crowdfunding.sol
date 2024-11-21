@@ -2,11 +2,16 @@
 pragma solidity ^0.8.0;
 
 contract CrowdFunding {
+     error NoAvailableAmount(string message);
+     error InsufficientBalance(uint256 available, uint256 required);
+     error WrongOwner(string message);
+
      event Received(address indexed sender, uint256 amount);
      event FallBackReceived(address indexed sender, uint256 amount);
 
      uint256 public constant MINIMUM_FUND = 0.001 ether;
      address public immutable owner;
+     mapping(address => uint256) private _balances;
 
      receive() external payable {
           emit Received(msg.sender, msg.value);
@@ -20,17 +25,25 @@ contract CrowdFunding {
           owner = msg.sender;
      }
 
-     function fund() public payable {
-          uint256 amount = msg.value;
-          require(amount>= MINIMUM_FUND, "Minimum amount is 0.001 ether");
+     modifier onlyOwner() {
+          if(msg.sender != owner) {
+               revert WrongOwner("Only owner can call this function");
+          }
+          _;
      }
 
-     function withdraw() public {
-          if(owner != msg.sender) {
-               revert("Only owner can withdraw");
+     function fund() public payable {
+          require(msg.value >= MINIMUM_FUND, "Minimum amount is 0.001 ether");
+          _balances[msg.sender] += msg.value;
+     }
+
+     function withdraw(uint256 amount) public onlyOwner {
+          uint256 balance = _balances[msg.sender];
+          if(balance < amount) {
+               revert InsufficientBalance(balance, amount);
           }
-          (bool sent,) = payable(owner).call{value: address(this).balance}("");
-          require(sent, "Failed to send ether");
+          _balances[msg.sender] -= amount;
+          payable(msg.sender).transfer(amount);
      }
 
      function getBalance() public view returns(uint256) {
