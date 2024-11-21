@@ -2,8 +2,20 @@
 pragma solidity ^0.8.0;
 
 contract CrowdFunding {
+     event Received(address indexed sender, uint256 amount);
+     event FallBackReceived(address indexed sender, uint256 amount);
+
      uint256 public constant MINIMUM_FUND = 0.001 ether;
      address public immutable owner;
+
+     receive() external payable {
+          
+          emit Received(msg.sender, msg.value);
+     }
+
+     fallback() external payable {
+          emit FallBackReceived(msg.sender, msg.value);
+     }
 
      constructor() {
           owner = msg.sender;
@@ -15,7 +27,14 @@ contract CrowdFunding {
      }
 
      function withdraw() public {
-          require(msg.sender == owner, "Only owner can withdraw");
-          payable(msg.sender).transfer(address(this).balance);
+          if(owner != msg.sender) {
+               revert("Only owner can withdraw");
+          }
+          (bool sent,) = payable(owner).call{value: address(this).balance}("");
+          require(sent, "Failed to send ether");
+     }
+
+     function getBalance() public view returns(uint256) {
+          return address(this).balance;
      }
 }
