@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+
 contract CrowdFunding {
      error NoAvailableAmount(string message);
      error InsufficientBalance(uint256 available, uint256 required);
@@ -9,9 +11,9 @@ contract CrowdFunding {
      event Received(address indexed sender, uint256 amount);
      event FallBackReceived(address indexed sender, uint256 amount);
 
-     uint256 public constant MINIMUM_FUND = 0.001 ether;
      address public immutable owner;
-     mapping(address => uint256) private _balances;
+     uint256 public constant MINIMUM_USD = 5e18;
+     AggregatorV3Interface internal priceFeed;
 
      receive() external payable {
           emit Received(msg.sender, msg.value);
@@ -21,8 +23,9 @@ contract CrowdFunding {
           emit FallBackReceived(msg.sender, msg.value);
      }
 
-     constructor() {
+     constructor(address _priceFeed) {
           owner = msg.sender;
+          priceFeed = AggregatorV3Interface(_priceFeed);
      }
 
      modifier onlyOwner() {
@@ -33,17 +36,14 @@ contract CrowdFunding {
      }
 
      function fund() public payable {
-          require(msg.value >= MINIMUM_FUND, "Minimum amount is 0.001 ether");
-          _balances[msg.sender] += msg.value;
+          uint256 amountinUSD = msg.value * uint256(getChainlinkDataFeedLatestAnswer());
+          require(amountinUSD >= MINIMUM_USD, "Minimum amount is not met");
+
      }
 
-     function withdraw(uint256 amount) public onlyOwner {
-          uint256 balance = _balances[msg.sender];
-          if(balance < amount) {
-               revert InsufficientBalance(balance, amount);
-          }
-          _balances[msg.sender] -= amount;
-          payable(msg.sender).transfer(amount);
+     function withdraw() public onlyOwner {
+          (bool sent,) = payable(owner).call{value: address(this).balance}("");
+          require(sent, "Failed to send ether");
      }
 
      function getBalance() public view returns(uint256) {
@@ -52,5 +52,11 @@ contract CrowdFunding {
 
      function getThisContractAddress() public view returns(address) {
           return address(this);
+     }
+
+     function getChainlinkDataFeedLatestAnswer() public view returns(int256) {
+          (,int256 price,,,) = priceFeed.latestRoundData();
+          int256 priceinETH = price * 1e10;
+          return priceinETH;
      }
 }
