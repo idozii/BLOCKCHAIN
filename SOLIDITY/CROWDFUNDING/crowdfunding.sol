@@ -9,7 +9,6 @@ contract CrowdFunding {
      address public immutable owner;
 
      receive() external payable {
-          
           emit Received(msg.sender, msg.value);
      }
 
@@ -36,5 +35,9 @@ contract CrowdFunding {
 
      function getBalance() public view returns(uint256) {
           return address(this).balance;
+     }
+
+     function getThisContractAddress() public view returns(address) {
+          return address(this);
      }
 }
