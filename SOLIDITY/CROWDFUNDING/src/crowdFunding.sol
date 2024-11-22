@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {PriceConverter} from "./priceConverter.sol";
+import {PriceConverter} from "SOLIDITY/CROWDFUNDING/src/priceConverter.sol";
 
 contract CrowdFunding {
      //!import library PriceConverter
