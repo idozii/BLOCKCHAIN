@@ -13,17 +13,24 @@ contract CrowdFunding {
      error WrongOwner(string message);
 
      //!state variables
-     event Received(address indexed sender, uint256 amount);
-     event FallBackReceived(address indexed sender, uint256 amount);
+     event Funded(address indexed funder, uint256 ethAmount, uint256 usdAmount);
+     event WithDrawn(address indexed owner, uint256 amount);
+
+
      address public immutable owner;
      uint256 public constant MINIMUM_USD = 5e18;
 
+     //!For funder
+     mapping(address funder => bool isFunded) public funders;
+     mapping(address funder => uint256 amount) public fundedAmount;
+     address[] public funderList;
+
      receive() external payable {
-          emit Received(msg.sender, msg.value);
+          fund();
      }
 
      fallback() external payable {
-          emit FallBackReceived(msg.sender, msg.value);
+          fund();
      }
 
      constructor() {
@@ -43,13 +50,21 @@ contract CrowdFunding {
           if (usdAmount < MINIMUM_USD) {
                revert NoAvailableAmount("Minimum amount is 5 USD");
           }
+          fundedAmount[msg.sender] += msg.value;
+          bool isFunded = funders[msg.sender];
+          if(!isFunded) {
+               funderList.push(msg.sender);
+               funders[msg.sender] = true;
+          }
+          emit Funded(msg.sender, ethAmount, usdAmount);
      }
 
-     function withdraw() public onlyOwner {
+     function withdrawn() public onlyOwner {
           (bool sent, ) = payable(owner).call{value: address(this).balance}("");
           if (!sent) {
                revert InsufficientBalance(address(this).balance, 0);
           }
+          emit WithDrawn(owner, address(this).balance);
      }
 
      function getBalance() public view returns (uint256) {
@@ -58,5 +73,9 @@ contract CrowdFunding {
 
      function getThisContractAddress() public view returns (address) {
           return address(this);
+     }
+
+     function getFunderList() public view returns (address[] memory) {
+          return funderList;
      }
 }
